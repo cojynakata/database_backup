@@ -15,7 +15,7 @@ if [ ! -f /etc/redhat-release ]; then
 		VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 		if [ $VERSION > 14 ] || [ $VERSION < 12 ]; then
 			echo "Detected OS: $DIST version $VERSION"
-			echo -e "\nYour OS is not officially supported! You can try to manually install the bellow packages and re-run this script:\nholland\nholland-common\nholland-mysqldump\n"
+			echo -e "\nYour OS version is not officially supported! You can try to manually install the bellow packages and re-run this script:\nholland\nholland-common\nholland-mysqldump\n"
 			exit
 		fi
 	else
