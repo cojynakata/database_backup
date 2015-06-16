@@ -137,7 +137,7 @@ function backup_local_destination(){
 	echo "The current directory for backups is: $CDIR"
 	! true #forcing the exit status to non 0 for the next while loop
 	while [ $? -ne 0 ]; do 
-		read -p "Please enter a new location or press enter to leave unchanged (if the desired directory doesn't exists, it will be created)[`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
+		read -p "Please type a new location or press enter to leave unchanged (WARNING! this change will affect all the holland backups; if the directory doesn't exists, it will be created)[`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
 		DIR=`echo $DIR | tr -d '[[:space:]]'`
 		if [ -z $DIR ]; then
 			echo "Backup destination not changed!"
@@ -148,7 +148,7 @@ function backup_local_destination(){
 			sed -i 's|'backup_directory\ =\ $CDIR'|'backup_directory\ =\ $DIR'|g' /etc/holland/holland.conf
 		fi
 	done
-	echo "Backup destination location: $DIR"	
+	echo -e "Backup location: $DIR\n"	
 	}
 
 # function for API backup method
@@ -220,6 +220,20 @@ function create_cron() {
 	
 	echo -e "\nAdding a new scheduled backup..."
 	function create_backupset(){
+		
+		# setting the backup location
+		while true; do
+			read -p "Select the backup destination:
+		1) local
+		2) rackspace cloud files
+	Answer: " option
+			case $option in
+				1 ) backup_local_destination; break;;
+				2 ) backup_cloud_destination; break;;
+				* ) echo -e "\nPlease answer with 1 or 2";;
+			esac
+		done
+		
 		while [ -z $name ]; do
 			read -p "Enter a name for the new holland backupset: [eg: daily_backup] " name
 		done
@@ -265,16 +279,17 @@ function create_cron() {
 				sed -i 's|'#\ password\ =\ \"\"\ #\ no\ default'|'password\ =\ \"$PASS\"'|g' /etc/holland/backupsets/$name.conf	
 			fi
 		
-		read -p "How many backups you want to keep?(default is 1!)[eg. 30] " NUM
+		read -p "How many backups do you want to keep?(default is 1!)[eg. 30] " NUM
 		sed -i 's|'backups-to-keep\ =\ 1'|'backups-to-keep\ =\ $NUM'|g' /etc/holland/backupsets/$name.conf
 		fi
 	
 		while true; do
+		echo
 		read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration file:
-1) Hourly
-2) Daily
-3) Weekly
-4) Monthly
+	1) Hourly
+	2) Daily
+	3) Weekly
+	4) Monthly
 Option number: " CRON
 		case $CRON in
 			1 ) create_cron hourly; break;;
@@ -298,7 +313,7 @@ Option number: " CRON
 			echo -e "\nThe inital backup completed successfully. The next backup will run as scheduled!"
 		else
 			echo -e "\nThere was an issue while performing the backup. Please go over the holland log /var/log/holland/holland.log and troubleshoot manually"
-			echo "All the backups are stored under the location set in "	
+			echo "The backups will be stored under  "	
 		fi
 		
 		exit
@@ -316,19 +331,6 @@ Option number: " CRON
 			* ) echo -e "\nPlease answer with 1 or 2";;
 		esac
 		done	
-	
-	# setting the backup location
-	while true; do
-		read -p "Select the cloud backup destination:
-		1) local
-		2) cloud files
-	Answer: " option
-		case $option in
-			1 ) backup_local_destination; exit;;
-			2 ) backup_cloud_destination; exit;;
-			* ) echo -e "\nPlease answer with 1 or 2";;
-		esac
-		done
 		
 	}
 
