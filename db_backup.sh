@@ -1,9 +1,11 @@
 #!/bin/bash
 
-################################################################################
-# This script has been developed to help setting up scheduled database backups #
-# More guidelines comming up
-################################################################################
+echo -e "#################################################################################
+# This script has been developed to help setting up scheduled database backups	#
+# It requires mysqldump to be installed and a successful connection		#
+# to the database you wish to back up to be available				#
+# (eg. mysql service must be started on default port 3306, firewall rule, etc)	#
+#################################################################################\n"
 
 
 # function to check if the current OS is supported
@@ -134,10 +136,10 @@ function holland_install() {
 # function to set a local backup destination
 function backup_local_destination(){
 	CDIR=`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2 | tr -d '[[:space:]]'`
-	echo "The current directory for backups is: $CDIR"
+	echo -e "\nThe current directory for backups is: $CDIR"
 	! true #forcing the exit status to non 0 for the next while loop
 	while [ $? -ne 0 ]; do 
-		read -p "Please type a new location or press enter to leave unchanged (WARNING! this change will affect all the holland backups; if the directory doesn't exists, it will be created)[`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
+		read -p "Please type a new location or press enter to leave unchanged (WARNING! this change is globally and will affect all the holland backups; if the directory doesn't exists, it will be created)[`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
 		DIR=`echo $DIR | tr -d '[[:space:]]'`
 		if [ -z $DIR ]; then
 			echo "Backup destination not changed!"
@@ -223,6 +225,7 @@ function create_cron() {
 		
 		# setting the backup location
 		while true; do
+			echo
 			read -p "Select the backup destination:
 		1) local
 		2) rackspace cloud files
@@ -286,10 +289,10 @@ function create_cron() {
 		while true; do
 		echo
 		read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration file:
-	1) Hourly
-	2) Daily
-	3) Weekly
-	4) Monthly
+		1) Hourly
+		2) Daily
+		3) Weekly
+		4) Monthly
 Option number: " CRON
 		case $CRON in
 			1 ) create_cron hourly; break;;
