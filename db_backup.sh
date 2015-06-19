@@ -155,7 +155,96 @@ function backup_local_destination(){
 
 # function for API backup method
 function api_selected() {
-	echo -e "API selected"
+	echo -e "\nAPI method selected. This method will only work with Rackspace cloud databases!"
+
+	#functions
+	
+	function get_token() {
+		OUTPUT=$(curl -s -d '{"auth":{"RAX-KSKEY:apiKeyCredentials":{"username": "'"$USERNAME"'","apiKey": "'"$APIKEY"'"}}}' -H 'Content-Type: application/json' 'https://identity.api.rackspacecloud.com/v2.0/tokens')
+		TOKEN=$(echo $OUTPUT | jq '.access.token.id' | cut -d'"' -f2)
+		EXPIRE=$(echo $OUTPUT | jq '.access.token.expires' | cut -d'"' -f2 | grep -oh "[0-9]" | tr -d '\n' | cut -c -14)
+		DDI=$(echo $OUTPUT | jq '.access.token.tenant.id' | cut -d'"' -f2)
+		
+		if [ -z $TOKEN ]; then
+			echo "There was a problem generating a token. Please check if the account details you provided are correct and if the page https://identity.api.rackspacecloud.com/v2.0/tokens is reachable from your server"
+			exit
+		else
+			echo -e "\nSaving info and token to /etc/dbcloud_backup.conf"
+			echo -e "DDI: $DDI\nUSERNAME: $USERNAME\nAPIKEY: $APIKEY\nTOKEN: $TOKEN\nEXPIRE: $EXPIRE" > /etc/dbcloud_backup.conf
+			cat /etc/dbcloud_backup.conf
+		fi
+	}
+	
+	function get_account_info() {
+		if [[ "$1" == "OVR" ]]; then
+			while [ -z $USERNAME ]; do 
+				read -p "Enter your account username [eg. admin]: " USERNAME
+			done
+			
+			while [ -z $APIKEY ]; do
+				read -p "Enter your username's API key (info: http://www.rackspace.com/knowledge_center/article/view-and-reset-your-api-key): " APIKEY
+			done
+			get_token
+		else
+			USERNAME=$(cat /etc/dbcloud_backup.conf | grep USERNAME | cut -d' ' -f2)
+			APIKEY=$(cat /etc/dbcloud_backup.conf | grep APIKEY | cut -d' ' -f2)
+			EXPIRE=$(cat /etc/dbcloud_backup.conf | grep EXPIRE | cut -d' ' -f2 | grep -oh "[0-9]" | tr -d '\n' | cut -c -14)
+			DATE=$(date -u +%Y%m%d%H%m%S) #get current time in UTC
+			if [[ $DATE -lt $EXPIRE ]]; then
+				echo "Token still valid!"
+				TOKEN=$(cat /etc/dbcloud_backup.conf | grep TOKEN | cut -d' ' -f2)
+			else
+				echo -e "Token expired! Requesting a new one!\n"
+				get_token
+			fi
+		fi
+		}
+
+	function download_jq() {
+		wget -q -O /usr/bin/jq http://stedolan.github.io/jq/download/linux64/jq
+		if [ $? -eq 0 ]; then
+			echo -e "jq has been saved to /usr/bin/jq\n"
+			chmod u+x /usr/bin/jq
+		else
+			echo "There was an issue downloading jq. Please download/install the package manually: http://stedolan.github.io/jq/download/"
+			exit
+		fi
+	}
+
+	if [ `which jq 2>&1 | grep "no jq" | wc -l` -eq 1 ]; then
+		while true; do
+			read -p "jq (a lightweight JSON processor) is needed for this method and could not be found in your PATH. Do you want to download it right now?[y/n] " yn
+			case $yn in
+				[Yy]* ) download_jq; break;;
+				[Nn]* ) echo "Aborted!"; exit;;
+				* ) echo -e "\nPlease answer yes[Y] or no[N]";;
+			esac
+		done
+	else
+		echo -e "jq was found on the system at: `which jq`\n"
+	fi
+	
+	if [ -f /etc/dbcloud_backup.conf ]; then
+		while true; do
+		echo -e "File /etc/dbcloud_backup.conf already exists and contains the following information:\n`cat /etc/dbcloud_backup.conf`"
+		read  -p "
+Do you want to overwrite it?[Y/n] " yn
+		case $yn in
+			[Yy]* ) get_account_info OVR; break;;
+			[Nn]* ) get_account_info; break;;
+			* ) echo -e "\nPlease answer yes[Y] or no[N]";;
+		esac
+		done
+	else
+		echo "File /etc/dbcloud_backup.conf was not found. Getting account information and generating file:"
+		get_account_info OVR
+		get_token
+	fi
+	
+	
+	read -p "Enter the location of the database [eg. LON] " LOCATION
+		
+	
 	exit
 	}
 
