@@ -258,7 +258,8 @@ Do you want to overwrite it?[y/n] " yn
 function create_cloud_backup_script() {
 echo -e "\nDeploying cloud backup script to /etc/dbcloud_backup/dbcloud_backup.sh
 Please note that for each instance that will be backed up using this script an additional file will be created under /etc/dbcloud_backup/
-Do not try to manually modify any of them unless you know what you do!\n"
+Do not try to manually modify any of them unless you know what you do!
+If you need to manually delete any backups created via this script, update the corresponding clouddb instance ID_log.conf file in /etc/dbcloud_backup/\n"
 
 echo "#!/bin/bash
 
