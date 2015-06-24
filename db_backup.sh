@@ -117,9 +117,9 @@ function holland_install() {
 	if [ "$DIST" == "Red Hat" ] || [ "$DIST" == "CentOS" ]; then
 		yum install holland holland-common holland-mysqldump -y 2>&1 > /dev/null
 		if [ `yum list holland holland-common holland-mysqldump | grep holland | wc -l` -eq "3" ]; then
-			echo "Holland successfully installed!"
+			echo -e "\nHolland successfully installed!"
 		else
-			echo "There was an issue installing Holland. Please manually install the following packages and re-run this script: holland holland-common and holland-mysqldump"
+			echo -e "\nThere was an issue installing Holland. Please manually install the following packages and re-run this script: holland holland-common and holland-mysqldump"
 			break
 		fi
 	elif [ "$DIST" == "Ubuntu" ] || [ "$DIST" == "Debian" ]; then
@@ -542,7 +542,7 @@ function create_cron() {
 			fi
 		
 			while true; do
-				read -p "How many backups do you want to keep?(default is 1!)[eg. 30] " NUM
+				read -p "How many backups do you want to keep?[eg. 30] " NUM
 				if [[ $NUM -gt 1 ]]; then
 					sed -i 's|'backups-to-keep\ =\ 1'|'backups-to-keep\ =\ $NUM'|g' /etc/holland/backupsets/$name.conf
 					break
@@ -553,10 +553,10 @@ function create_cron() {
 		while true; do
 		echo
 		read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration cron file:
-		1) Hourly
-		2) Daily
-		3) Weekly
-		4) Monthly
+	1) Hourly
+	2) Daily
+	3) Weekly
+	4) Monthly
 Option number: " CRON
 		case $CRON in
 			1 ) create_cron hourly; break;;
