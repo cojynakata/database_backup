@@ -156,7 +156,7 @@ function backup_local_destination(){
 # function for API backup method
 function api_selected() {
 	echo -e "\nAPI method selected. This method will only work with Rackspace cloud databases!"
-
+	mkdir -p /etc/dbcloud_backup/
 	#functions
 	
 	function get_token() {
