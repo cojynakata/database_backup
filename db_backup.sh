@@ -169,9 +169,9 @@ function api_selected() {
 			echo "There was a problem generating a token. Please check if the account details you provided are correct and if the page https://identity.api.rackspacecloud.com/v2.0/tokens is reachable from your server"
 			exit
 		else
-			echo -e "\nSaving info and token to /etc/dbcloud_backup.conf"
-			echo -e "DDI: $DDI\nUSERNAME: $USERNAME\nAPIKEY: $APIKEY\nTOKEN: $TOKEN\nEXPIRE: $EXPIRE" > /etc/dbcloud_backup.conf
-			cat /etc/dbcloud_backup.conf
+			echo -e "\nSaving info and token to /etc/dbcloud_backup/dbcloud_backup.conf"
+			echo -e "DDI: $DDI\nUSERNAME: $USERNAME\nAPIKEY: $APIKEY\nTOKEN: $TOKEN\nEXPIRE: $EXPIRE" > /etc/dbcloud_backup/dbcloud_backup.conf
+			cat /etc/dbcloud_backup/dbcloud_backup.conf
 		fi
 	}
 	
@@ -186,15 +186,16 @@ function api_selected() {
 			done
 			get_token
 		else
-			USERNAME=$(cat /etc/dbcloud_backup.conf | grep USERNAME | cut -d' ' -f2)
-			APIKEY=$(cat /etc/dbcloud_backup.conf | grep APIKEY | cut -d' ' -f2)
-			EXPIRE=$(cat /etc/dbcloud_backup.conf | grep EXPIRE | cut -d' ' -f2 | grep -oh "[0-9]" | tr -d '\n' | cut -c -14)
-			DATE=$(date -u +%Y%m%d%H%m%S) #get current time in UTC
+			USERNAME=$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep USERNAME | cut -d' ' -f2)
+			APIKEY=$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep APIKEY | cut -d' ' -f2)
+			DDI=$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep DDI | cut -d' ' -f2)
+			EXPIRE=$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep EXPIRE | cut -d' ' -f2 | grep -oh "[0-9]" | tr -d '\n' | cut -c -14)
+			DATE=$(date -u +%Y%m%d%H%M%S) #get current time in UTC
 			if [[ $DATE -lt $EXPIRE ]]; then
-				echo "Token still valid!"
-				TOKEN=$(cat /etc/dbcloud_backup.conf | grep TOKEN | cut -d' ' -f2)
+				echo -e "Token still valid!\n"
+				TOKEN=$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep TOKEN | cut -d' ' -f2)
 			else
-				echo -e "Token expired! Requesting a new one!\n"
+				echo -e "Token expired! Requesting a new one!"
 				get_token
 			fi
 		fi
@@ -209,44 +210,211 @@ function api_selected() {
 			echo "There was an issue downloading jq. Please download/install the package manually: http://stedolan.github.io/jq/download/"
 			exit
 		fi
-	}
+		}
 
-	if [ `which jq 2>&1 | grep "no jq" | wc -l` -eq 1 ]; then
-		while true; do
-			read -p "jq (a lightweight JSON processor) is needed for this method and could not be found in your PATH. Do you want to download it right now?[y/n] " yn
+		if [ `which jq 2>&1 | grep "no jq" | wc -l` -eq 1 ]; then
+			while true; do
+				read -p "jq (a lightweight JSON processor) is needed for this method and could not be found in your PATH. Do you want to download it right now?[y/n] " yn
+				case $yn in
+					[Yy]* ) download_jq; break;;
+					[Nn]* ) echo "Aborted!"; exit;;
+					* ) echo -e "\nPlease answer yes[Y] or no[N]";;
+				esac
+			done
+		else
+			echo -e "jq was found on the system at: `which jq`\n"
+		fi
+		
+		if [ -f /etc/dbcloud_backup/dbcloud_backup.conf ]; then
+			mkdir -p /etc/dbcloud_backup/
+			while true; do
+			echo -e "File /etc/dbcloud_backup/dbcloud_backup.conf already exists and contains the following information:\n`cat /etc/dbcloud_backup/dbcloud_backup.conf`"
+			read  -p "
+Do you want to overwrite it?[y/n] " yn
 			case $yn in
-				[Yy]* ) download_jq; break;;
-				[Nn]* ) echo "Aborted!"; exit;;
+				[Yy]* ) get_account_info OVR; break;;
+				[Nn]* ) get_account_info; break;;
 				* ) echo -e "\nPlease answer yes[Y] or no[N]";;
 			esac
-		done
-	else
-		echo -e "jq was found on the system at: `which jq`\n"
-	fi
+			done
+		else
+			echo "File /etc/dbcloud_backup/dbcloud_backup.conf was not found. Getting account information and generating file:"
+			get_account_info OVR
+			get_token
+		fi
 	
-	if [ -f /etc/dbcloud_backup.conf ]; then
+function create_cloud_backup_script() {
+echo -e "\nDeploying cloud backup script to /etc/dbcloud_backup/dbcloud_backup.sh
+Please note that for each instance that will be backed up using this script an additional file will be created under /etc/dbcloud_backup/
+Do not try to manually modify any of them unless you know what you do!\n"
+
+echo "#!/bin/bash
+
+LOCATION=\$1
+UUID=\$2
+SCHEDULE_PERIOD=\$3
+RETENTION=\$4
+TIME=\$(date +%Y%m%d%H%M)
+
+function get_token() {
+OUTPUT=\$(curl -s -d '{\"auth\":{\"RAX-KSKEY:apiKeyCredentials\":{\"username\": \"'\"\$USERNAME\"'\",\"apiKey\": \"'\"\$APIKEY\"'\"}}}' -H 'Content-Type: application/json' 'https://identity.api.rackspacecloud.com/v2.0/tokens')
+TOKEN=\$(echo \$OUTPUT | jq '.access.token.id' | cut -d'\"' -f2)
+EXPIRE=\$(echo \$OUTPUT | jq '.access.token.expires' | cut -d'\"' -f2 | grep -oh \"[0-9]\" | tr -d '\n' | cut -c -14)
+DDI=\$(echo \$OUTPUT | jq '.access.token.tenant.id' | cut -d'\"' -f2)
+
+if [ -z \$TOKEN ]; then
+        echo \"There was a problem generating a token. Please check if the account details you provided are correct and if the page https://identity.api.rackspacecloud.com/v2.0/tokens is reachable from your server\"
+        exit
+else
+        echo -e \"\nSaving info and token to /etc/dbcloud_backup/dbcloud_backup.conf\"
+        echo -e \"DDI: \$DDI\nUSERNAME: \$USERNAME\nAPIKEY: \$APIKEY\nTOKEN: \$TOKEN\nEXPIRE: \$EXPIRE\" > /etc/dbcloud_backup/dbcloud_backup.conf
+        cat /etc/dbcloud_backup/dbcloud_backup.conf
+fi
+}
+
+USERNAME=\$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep USERNAME | cut -d' ' -f2)
+APIKEY=\$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep APIKEY | cut -d' ' -f2)
+DDI=\$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep DDI | cut -d' ' -f2)
+EXPIRE=\$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep EXPIRE | cut -d' ' -f2 | grep -oh \"[0-9]\" | tr -d '\n' | cut -c -14)
+DATE=\$(date -u +%Y%m%d%H%m%S) #get current time in UTC
+if [[ \$DATE -lt \$EXPIRE ]]; then
+        echo -e \"Token still valid!\n\" > /dev/null
+        TOKEN=\$(cat /etc/dbcloud_backup/dbcloud_backup.conf | grep TOKEN | cut -d' ' -f2)
+else
+        echo -e \"Token expired! Requesting a new one!\n\" > /dev/null
+        get_token
+fi
+
+BACKUP=\$(curl -s -X POST -d '{
+    \"backup\": {
+        \"instance\": \"'\"\"\$UUID\"\"'\",
+        \"description\": \"automatic_backup\",
+        \"name\": \"'\"\"\$SCHEDULE_PERIOD\"_\"\$TIME\"\"'\"
+    }
+}
+' -H \"Content-Type: application/json\" -H \"X-Auth-Token: \$TOKEN\" https://\$LOCATION.databases.api.rackspacecloud.com/v1.0/\$DDI/backups)
+
+ID=\$(echo \$BACKUP | jq '.backup.id' | cut -d'\"' -f2)
+
+if [ -z \"\$ID\" ]; then
+        echo \"There was a problem requesting for a new backup - \$TIME\" >> /etc/dbcloud_backup/\$UUID_backup_log.conf
+	return 2
+else
+        echo \"Backup requested: \$SCHEDULE_PERIOD\"_\"\$TIME \$ID\" >> /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf
+fi
+
+# cleanup
+while [ \`cat /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf | grep Backup | wc -l\` -gt \$RETENTION ]; do
+	TBD=\`cat /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf | head -1 | awk {'print \$4'}\`
+	DELETE=\$(curl -s -X DELETE -H 'X-Auth-Token: '\"\$TOKEN\"'' https://\$LOCATION.databases.api.rackspacecloud.com/v1.0/\$DDI/backups/\$TBD)
+	if [ -z \"\$DELETE\" ]; then
+		echo \"Delete request sent\" > /dev/null
+		sed -i \"/\$TBD/d\" /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf
+	else
+		echo \"There was an error while deleting the backup\" > /dev/null
+		return 2
+	fi
+done" > /etc/dbcloud_backup/dbcloud_backup.sh
+			}
+	
+		function create_cloudb_cron() {
+			SCHEDULE_PERIOD=$1
+			if [ `grep "$UUID" /etc/cron.$1/ -R | wc -l` == "0" ]; then
+				echo -e "Creating cronjob for clouddb instance $UUID in /etc/cron.$1/clouddb\n"
+				echo "`which bash` /etc/dbcloud_backup/dbcloud_backup.sh $LOCATION $UUID $SCHEDULE_PERIOD $RETENTION" >> /etc/cron.$1/clouddb
+				chmod +x /etc/cron.$1/clouddb
+			else
+				echo -e "Another $1 cronjob exists for the instace $UUID! Skipping...\n"
+				chmod +x /etc/cron.$1/clouddb
+			fi	
+			}
+
+		function create_cloudb_backupset() {
+			create_cloud_backup_script
+			echo -e "How many backups to you want to keep for this cloud database?\nPlease note that this setting will only affect the cloud database backups created using this script.\nAll the backups will have the text \"automated_backup\" in the description field.\nThe oldest backup will be removed when the specified limit is reached." 
+			read -p "Answer: [eg. 5] " RETENTION
+	
+		while true; do		
+read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration cron file:
+		1) Hourly
+		2) Daily
+		3) Weekly
+		4) Monthly
+Option number: " CRON
+		case $CRON in
+			1 ) create_cloudb_cron hourly $RETENTION; break;;
+			2 ) create_cloudb_cron daily $RETENTION; break;;
+			3 ) create_cloudb_cron weekly $RETENTION; break;;
+			4 ) create_cloudb_cron monthly $RETENTION; break;;			
+			* ) echo -e "\nPlease select one of options";;
+		esac
+		done			
+			}
+
+		function select_clouddb() {
+			LOCATION=$1
+			OUTPUT=$(curl -s -H "X-Auth-Token: $TOKEN" https://$LOCATION.databases.api.rackspacecloud.com/v1.0/$DDI/instances)
+			LIST=`echo $OUTPUT | jq '.' | grep "\"name\":" | wc -l`
+			if [ $LIST -gt 0 ]; then
+				echo -e "\nListing all the cloud databases for account $DDI in region `echo $LOCATION | tr '[:lower:]' '[:upper:]'`:"
+				for ((i = 0; i < $LIST; i++)); do
+					echo -e "\nCloud database $((i+1)):"
+					echo "--------------------"	
+					echo "Name: `echo $OUTPUT | jq '.instances['$i'].name'`"
+					echo "Hostname: `echo $OUTPUT | jq '.instances['$i'].hostname'`"
+					echo "UUID: `echo $OUTPUT | jq '.instances['$i'].id'`"
+				done
+				echo -e "\nPlease enter the UUID of the cloud database for which you would like to set the scheduled backups:"
+				read -p "CloudDB UUID: " UUID
+				create_cloudb_backupset
+
+				# testing the backup
+				while true; do
+				read -p "All done! Do you want to force an initial backup right now? [Y/n] " yn
+				case $yn in
+					[Yy]* ) `which bash` /etc/dbcloud_backup/dbcloud_backup.sh $LOCATION $UUID $SCHEDULE_PERIOD $RETENTION; break;;
+					[Nn]* ) echo "Aborted!"; exit;;
+					* ) echo -e "\nPlease answer yes[Y] or no[N]";;
+				esac
+				done
+				
+				if [ $? == 0 ]; then
+					echo -e "\nThe inital backup completed successfully. The next backup will run as scheduled!"
+					echo "All the backups are stored in your \"MySQL Backups\" section in your Rackspace cloud control panel"
+				else
+					echo -e "\nThere was an issue while performing the backup. Please try to run the backup manually "
+				fi
+				
+				exit			
+			
+			else
+				echo -e "\nNo cloud databases could be found for account $DDI in region `echo $LOCATION | tr '[:lower:]' '[:upper:]'`\nPlase check that you have at least one ACTIVE cloud database created in the selected region."
+			fi
+			}
+	
 		while true; do
-		echo -e "File /etc/dbcloud_backup.conf already exists and contains the following information:\n`cat /etc/dbcloud_backup.conf`"
-		read  -p "
-Do you want to overwrite it?[Y/n] " yn
-		case $yn in
-			[Yy]* ) get_account_info OVR; break;;
-			[Nn]* ) get_account_info; break;;
-			* ) echo -e "\nPlease answer yes[Y] or no[N]";;
+	read -p "Select the region of your database?
+1) DFW (Dallas)
+2) ORD (Chicago)
+3) IAD (Virginia)
+4) SYD (Syndney)
+5) LON (London)
+6) HKG (Hong Kong)
+Option number: " LOCATION
+		case $LOCATION in
+		1 ) select_clouddb dfw; break;;
+		2 ) select_clouddb ord; break;;
+		3 ) select_clouddb iad; break;;
+		4 ) select_clouddb syd; break;;
+		5 ) select_clouddb lon; break;;
+		6 ) select_clouddb hkg; break;;
+			* ) echo -e "\nPlease answer with the option number";;
 		esac
 		done
-	else
-		echo "File /etc/dbcloud_backup.conf was not found. Getting account information and generating file:"
-		get_account_info OVR
-		get_token
-	fi
-	
-	
-	read -p "Enter the location of the database [eg. LON] " LOCATION
+			
 		
-	
-	exit
-	}
+		exit
+		}
 
 # function for holland agent backup method
 function holland_selected() {
@@ -312,25 +480,27 @@ function create_cron() {
 	echo -e "\nAdding a new scheduled backup..."
 	function create_backupset(){
 		
-		# setting the backup location
-		while true; do
-			echo
-			read -p "Select the backup destination:
-		1) local
-		2) rackspace cloud files
-	Answer: " option
-			case $option in
-				1 ) backup_local_destination; break;;
-				2 ) backup_cloud_destination; break;;
-				* ) echo -e "\nPlease answer with 1 or 2";;
-			esac
-		done
+# 	setting the backup location (cloud files to be developed)
+#		while true; do
+#			echo
+#			read -p "Select the backup destination:
+#		1) local
+#		2) rackspace cloud files
+#	Answer: " option
+#			case $option in
+#				1 ) backup_local_destination; break;;
+#				2 ) backup_cloud_destination; break;;
+#				* ) echo -e "\nPlease answer with 1 or 2";;
+#			esac
+#		done
+		
+		backup_local_destination
 		
 		while [ -z $name ]; do
 			read -p "Enter a name for the new holland backupset: [eg: daily_backup] " name
 		done
 		/usr/sbin/holland mk-config mysqldump > /etc/holland/backupsets/$name.conf
-		echo "New backupset /etc/holland/backupsets/$name.conf created.."
+		echo -e "New backupset /etc/holland/backupsets/$name.conf created\n"
 			if [ "$1" -eq "1" ]; then
 				HOST=localhost
 				if [ `cat /root/.my.cnf | grep root | cut -d'=' -f2 | wc -l` -eq "1" ]; then
@@ -371,13 +541,18 @@ function create_cron() {
 				sed -i 's|'#\ password\ =\ \"\"\ #\ no\ default'|'password\ =\ \"$PASS\"'|g' /etc/holland/backupsets/$name.conf	
 			fi
 		
-		read -p "How many backups do you want to keep?(default is 1!)[eg. 30] " NUM
-		sed -i 's|'backups-to-keep\ =\ 1'|'backups-to-keep\ =\ $NUM'|g' /etc/holland/backupsets/$name.conf
+			while true; do
+				read -p "How many backups do you want to keep?(default is 1!)[eg. 30] " NUM
+				if [[ $NUM -gt 1 ]]; then
+					sed -i 's|'backups-to-keep\ =\ 1'|'backups-to-keep\ =\ $NUM'|g' /etc/holland/backupsets/$name.conf
+					break
+				fi
+			done
 		fi
-	
+
 		while true; do
 		echo
-		read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration file:
+		read -p "How often should the backup be performed? This will create a cron job in the apropriate configuration cron file:
 		1) Hourly
 		2) Daily
 		3) Weekly
@@ -392,8 +567,9 @@ Option number: " CRON
 		esac
 		done
 		
+		echo -e "\nAll done!"
 		while true; do
-		read -p "All done! Do you want to force an initial backup right now? [Y/n] " yn
+		read -p "Do you want to force an initial backup right now? [Y/n] " yn
 		case $yn in
 			[Yy]* ) `which holland` bk $name; break;;
 			[Nn]* ) echo "Aborted!"; exit;;
