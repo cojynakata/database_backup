@@ -1,9 +1,9 @@
 #!/bin/bash
 
-echo -e "############################################################################################
-# This script has been developed to help setting up scheduled database backups             #
-# More information: https://github.com/cojynakata/database_backup/blob/master/db_backup.sh #
-############################################################################################\n"
+echo -e "\n################################################################################
+# This script has been developed to help setting up scheduled database backups #
+# More information and README: https://github.com/cojynakata/database_backup   #
+################################################################################\n"
 
 
 # function to check if the current OS is supported
