@@ -1,6 +1,6 @@
 # Database Backup Scheduler
 
-This is a simple script designed to help setting up scheduled local/remote mysql database backups.
+This is a simple bash script designed to help setting up scheduled local/remote mysql database backups.
 
 Method 1) Holland agent (http://hollandbackup.org)
   NOTE: this method requires mysqldump and mysqlshow packages to be installed on the system and that a mysql connection to be available to the database
