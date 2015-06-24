@@ -13,15 +13,22 @@ function check_OS {
 if [ ! -f /etc/redhat-release ]; then
 	##non-rhel dist
 	DIST=$(cat /etc/issue | head -1 | cut -d' ' -f1)
-	if [ "$DIST" == "Ubuntu" ] || [ "$DIST" == "Debian" ]; then
+	if [ "$DIST" == "Ubuntu" ]; then
 		VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 		if [ $VERSION > 14 ] || [ $VERSION < 12 ]; then
 			echo "Detected OS: $DIST version $VERSION"
-			echo -e "\nYour OS version is not officially supported! You can try to manually install the bellow packages and re-run this script:\nholland\nholland-common\nholland-mysqldump\n"
+			echo -e "\nSorry, currently the only supported distributions are Centos/RHEL 5/6/7, Debian7 and Ubuntu 12.xx, 14.xx\n"
 			exit
 		fi
-	else
-		echo "Unsuported OS. Aborted"
+	elif [ "$DIST" == "Debian" ]; then
+     VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f3)
+		if [ $VERSION != 7 ]; then
+			echo "Detected OS: $DIST version $VERSION"
+			echo -e "\nSorry, currently the only supported distributions are Centos/RHEL 5/6/7, Debian7 and Ubuntu 12.xx, 14.xx\n"
+			exit
+		fi     
+  else
+		echo -e "\nSorry, currently the only supported distributions are Centos/RHEL 5/6/7, Debian7 and Ubuntu 12.xx, 14.xx\n"
 		exit
 	fi	
 	##rhel dist	
@@ -91,12 +98,18 @@ function holland_repo_install() {
 		echo "deb http://download.opensuse.org/repositories/home:/holland-backup/xUbuntu_$VERSION/ ./" > /etc/apt/sources.list.d/holland.list
 		echo "Updating packages list! Please wait..."
 		apt-get update 2>&1 > /dev/null	
+	elif [ "$DIST" == "Debian" ]; then
+		wget -q http://download.opensuse.org/repositories/home:/holland-backup/Debian_7.0/Release.key -O - | sudo apt-key add -
+		echo "deb http://download.opensuse.org/repositories/home:/holland-backup/Debian_7.0/ ./" > /etc/apt/sources.list.d/holland.list
+		echo "Updating packages list! Please wait..."
+		apt-get update 2>&1 > /dev/null
 	fi
 
 	if holland_repo $DIST $VERSION; then
 		return 0
 	else 
 		echo "The repository install failed! Please add the holland repository manually from: http://download.opensuse.org/repositories/home:/holland-backup/"
+    exit
 	fi
 	}
 
@@ -139,7 +152,8 @@ function backup_local_destination(){
 	echo -e "\nThe current directory for backups is: $CDIR"
 	! true #forcing the exit status to non 0 for the next while loop
 	while [ $? -ne 0 ]; do 
-		read -p "Please type a new location or press enter to leave unchanged (WARNING! this change is globally and will affect all the holland backups; if the directory doesn't exists, it will be created)[`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
+		echo -e "\nPlease type a new location or press enter to leave unchanged;\nWARNING! this change is globally and will affect all the holland backups;\nif the directory doesn't exists, it will be created\nTIP: hold the CTRL key if you need to use the DEL or BACKSPACE keys"
+    read -p "Location: [`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
 		DIR=`echo $DIR | tr -d '[[:space:]]'`
 		if [ -z $DIR ]; then
 			echo "Backup destination not changed!"
@@ -178,7 +192,7 @@ function api_selected() {
 	function get_account_info() {
 		if [[ "$1" == "OVR" ]]; then
 			while [ -z $USERNAME ]; do 
-				read -p "Enter your account username [eg. admin]: " USERNAME
+				read -p "Enter your Rackspace account username [eg. admin]: " USERNAME
 			done
 			
 			while [ -z $APIKEY ]; do
@@ -212,7 +226,7 @@ function api_selected() {
 		fi
 		}
 
-		if [ `which jq 2>&1 | grep "no jq" | wc -l` -eq 1 ]; then
+		if [ ! -f /usr/bin/jq ]; then
 			while true; do
 				read -p "jq (a lightweight JSON processor) is needed for this method and could not be found in your PATH. Do you want to download it right now?[y/n] " yn
 				case $yn in
@@ -240,7 +254,6 @@ Do you want to overwrite it?[y/n] " yn
 		else
 			echo "File /etc/dbcloud_backup/dbcloud_backup.conf was not found. Getting account information and generating file:"
 			get_account_info OVR
-			get_token
 		fi
 	
 function create_cloud_backup_script() {
@@ -331,7 +344,7 @@ done" > /etc/dbcloud_backup/dbcloud_backup.sh
 
 		function create_cloudb_backupset() {
 			create_cloud_backup_script
-			echo -e "How many backups to you want to keep for this cloud database?\nPlease note that this setting will only affect the cloud database backups created using this script.\nAll the backups will have the text \"automated_backup\" in the description field.\nThe oldest backup will be removed when the specified limit is reached." 
+			echo -e "How many backups do you want to keep for this cloud database?\nPlease note that this setting will only affect the cloud database backups created using this script.\nAll the backups will have the text \"automated_backup\" in the description field.\nThe oldest backup will be removed when the specified limit is reached." 
 			read -p "Answer: [eg. 5] " RETENTION
 	
 		while true; do		
@@ -544,7 +557,7 @@ function create_cron() {
 		
 			while true; do
 				read -p "How many backups do you want to keep?[eg. 30] " NUM
-				if [[ $NUM -gt 1 ]]; then
+				if [[ $NUM -gt 0 ]]; then
 					sed -i 's|'backups-to-keep\ =\ 1'|'backups-to-keep\ =\ $NUM'|g' /etc/holland/backupsets/$name.conf
 					break
 				fi
@@ -582,7 +595,6 @@ Option number: " CRON
 			echo -e "\nThe inital backup completed successfully. The next backup will run as scheduled!"
 		else
 			echo -e "\nThere was an issue while performing the backup. Please go over the holland log /var/log/holland/holland.log and troubleshoot manually"
-			echo "The backups will be stored under  "	
 		fi
 		
 		exit
@@ -614,4 +626,4 @@ Answer: " option
         2 ) api_selected; exit;;
         * ) echo -e "\nPlease answer with 1 or 2";;
     esac
-	done
+	done 
