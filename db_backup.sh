@@ -1,11 +1,9 @@
 #!/bin/bash
 
-echo -e "#################################################################################
-# This script has been developed to help setting up scheduled database backups	#
-# It requires mysqldump to be installed and a successful connection		#
-# to the database you wish to back up to be available				#
-# (eg. mysql service must be started on default port 3306, firewall rule, etc)	#
-#################################################################################\n"
+echo -e "############################################################################################
+# This script has been developed to help setting up scheduled database backups             #
+# More information: https://github.com/cojynakata/database_backup/blob/master/db_backup.sh #
+############################################################################################\n"
 
 
 # function to check if the current OS is supported
