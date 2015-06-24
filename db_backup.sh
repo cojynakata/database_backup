@@ -393,6 +393,7 @@ Option number: " CRON
 			}
 	
 		while true; do
+	echo
 	read -p "Select the region of your database?
 1) DFW (Dallas)
 2) ORD (Chicago)
