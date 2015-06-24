@@ -14,12 +14,13 @@ if [ ! -f /etc/redhat-release ]; then
 	##non-rhel dist
 	DIST=$(cat /etc/issue | head -1 | cut -d' ' -f1)
 	if [ "$DIST" == "Ubuntu" ]; then
-		VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f2 | cut -d'.' -f1,2)
-		if [ $VERSION > 14 ] || [ $VERSION < 12 ]; then
+		VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f2 | cut -d'.' -f1)
+		if [ "$VERSION" -gt "14" ] || [ "$VERSION" -lt "12" ]; then
 			echo "Detected OS: $DIST version $VERSION"
 			echo -e "\nSorry, currently the only supported distributions are Centos/RHEL 5/6/7, Debian7 and Ubuntu 12.xx, 14.xx\n"
 			exit
-		fi
+    fi
+    VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f2 | cut -d'.' -f1,2)
 	elif [ "$DIST" == "Debian" ]; then
      VERSION=$(cat /etc/issue | head -1 | cut -d' ' -f3)
 		if [ $VERSION != 7 ]; then
@@ -152,7 +153,7 @@ function backup_local_destination(){
 	echo -e "\nThe current directory for backups is: $CDIR"
 	! true #forcing the exit status to non 0 for the next while loop
 	while [ $? -ne 0 ]; do 
-		echo -e "\nPlease type a new location or press enter to leave unchanged;\nWARNING! this change is globally and will affect all the holland backups;\nif the directory doesn't exists, it will be created\nTIP: hold the CTRL key if you need to use the DEL or BACKSPACE keys"
+		echo -e "\nPlease type a new location or press enter to leave unchanged;\nWARNING! this change is globally and will affect all the holland backups;\nIf the directory doesn't exists, it will be created;"
     read -p "Location: [`cat /etc/holland/holland.conf | grep "backup_directory" | cut -d'=' -f2` ]: " DIR
 		DIR=`echo $DIR | tr -d '[[:space:]]'`
 		if [ -z $DIR ]; then
@@ -169,7 +170,7 @@ function backup_local_destination(){
 
 # function for API backup method
 function api_selected() {
-	echo -e "\nAPI method selected. This method will only work with Rackspace cloud databases!"
+	echo -e "\nAPI method selected. This method will only work with Rackspace cloud databases!\nTIP: hold the CTRL key if you need to use the DEL or BACKSPACE keys"
 	mkdir -p /etc/dbcloud_backup/
 	#functions
 	
@@ -432,7 +433,7 @@ Option number: " LOCATION
 
 # function for holland agent backup method
 function holland_selected() {
-	echo -e "Holland selected"
+	echo -e "Holland agent method selected\nTIP: hold the CTRL key if you need to use the DEL or BACKSPACE keys\n"
 	check_OS
 	echo "Checking if holland is installed..."
 		while ! check_holland $DIST $VERSION; do
