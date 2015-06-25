@@ -1,18 +1,18 @@
 # Database Backup Scheduler
 
-This is a simple bash script designed to help setting up scheduled local/remote mysql database backups.
+This is a simple bash script designed to help setting up scheduled local/remote mysql database backups. Depending on the type of the database, this can be done using one of the methods described bellow. The automatic backup will be done via a cronjob.
 
 # How to run:
 bash <(curl -s https://raw.githubusercontent.com/cojynakata/database_backup/master/db_backup.sh)
 
 # About the script:
 Method 1) Holland agent (http://hollandbackup.org)
-  NOTE: this method requires mysqldump and mysqlshow packages to be installed on the system and that a mysql connection to be available to the database
+- NOTE: this method requires mysqldump and mysqlshow packages to be installed on the system and that a mysql connection to be available to the database
   PROCESS WALKTHROUGH:
   - it will install the holland packages and holland-mysqldump plugin (and if needed also the holland repository); the supported distributions are Centos/RHEL 5/6/7, Debian7 and Ubuntu 12.xx, 14.xx
   - it will query and set the default holland backup location
-  - it will create a new holland backupset
-  - it will query for the database connection details, test the connection and save them to /etc/holland/backupsets/<BACKUP_NAME>.conf
+  - it will create a new holland backupset using the command: holland mk-config mysqldump <NAME>
+  - it will query for the database connection details, test the connection and update the backupset /etc/holland/backupsets/<BACKUP_NAME>.conf
   - it will ask the for the backup retention period and update the "backups-to-keep" parameter in the holland backupset
   - it will ask the frequency of the backups and create a cronfile named "holland" under the corresponding /etc/cron.<FREQUENCY>/ directory
   - the cronjob will be in the following format which is allowing the backup jobs to run independently : `which holland` bk BACKUPSET_NAME and the backups will be saved in the selected directory
