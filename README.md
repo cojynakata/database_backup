@@ -18,7 +18,7 @@ Method 1) Holland agent (http://hollandbackup.org)
   - the cronjob will be in the following format which is allowing the backup jobs to run independently : `which holland` bk BACKUPSET_NAME and the backups will be saved in the selected directory
 
 Method 2) API call method
-  NOTE: this method will only work with Rackspace cloud databases and requires "jq" to be installed in /usr/bin/jq which will be automatically downloaded if needed
+- NOTE: this method will only work with Rackspace cloud databases and requires "jq" to be installed in /usr/bin/jq which will be automatically downloaded if needed
   PROCESS WALKTHROUGH:
   - it will ask for the Rackspace username and API key based on which it will generate the TOKEN; these info will be saved to /etc/dbcloud_backup/dbcloud_backup.conf and later used when needed (eg. setting a new backup or running an existing one)
   - the token validity will be checked before use and a new token will be requested and saved if expired
