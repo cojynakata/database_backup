@@ -2,10 +2,10 @@
 
 This is a simple bash script designed to help setting up scheduled local/remote mysql database backups.
 
-You can use the following command to run it on the server:
-
+# How to run:
 bash <(curl -s https://raw.githubusercontent.com/cojynakata/database_backup/master/db_backup.sh)
 
+# About the script:
 Method 1) Holland agent (http://hollandbackup.org)
   NOTE: this method requires mysqldump and mysqlshow packages to be installed on the system and that a mysql connection to be available to the database
   PROCESS WALKTHROUGH:
