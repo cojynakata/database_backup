@@ -311,7 +311,6 @@ ID=\$(echo \$BACKUP | jq '.backup.id' | cut -d'\"' -f2)
 
 if [ -z \"\$ID\" ]; then
         echo \"There was a problem requesting for a new backup - \$TIME\" >> /etc/dbcloud_backup/\$UUID_backup_log.conf
-	return 2
 else
         echo \"Backup requested: \$SCHEDULE_PERIOD\"_\"\$TIME \$ID\" >> /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf
 fi
@@ -325,7 +324,6 @@ while [ \`cat /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf | grep Backup | wc 
 		sed -i \"/\$TBD/d\" /etc/dbcloud_backup/\"\$UUID\"_backup_log.conf
 	else
 		echo \"There was an error while deleting the backup\" > /dev/null
-		return 2
 	fi
 done" > /etc/dbcloud_backup/dbcloud_backup.sh
 			}
@@ -334,6 +332,9 @@ done" > /etc/dbcloud_backup/dbcloud_backup.sh
 			SCHEDULE_PERIOD=$1
 			if [ `grep "$UUID" /etc/cron.$1/ -R | wc -l` == "0" ]; then
 				echo -e "Creating cronjob for clouddb instance $UUID in /etc/cron.$1/clouddb\n"
+				if [ ! -f /etc/cron.$1/clouddb ]; then
+					echo "#!/bin/bash" > /etc/cron.$1/clouddb
+				fi
 				echo "`which bash` /etc/dbcloud_backup/dbcloud_backup.sh $LOCATION $UUID $SCHEDULE_PERIOD $RETENTION" >> /etc/cron.$1/clouddb
 				chmod +x /etc/cron.$1/clouddb
 			else
@@ -386,7 +387,7 @@ Option number: " CRON
 				read -p "All done! Do you want to force an initial backup right now? [Y/n] " yn
 				case $yn in
 					[Yy]* ) `which bash` /etc/dbcloud_backup/dbcloud_backup.sh $LOCATION $UUID $SCHEDULE_PERIOD $RETENTION; break;;
-					[Nn]* ) echo "Aborted!"; exit;;
+					[Nn]* ) echo "The first backup will run as scheduled!"; exit;;
 					* ) echo -e "\nPlease answer yes[Y] or no[N]";;
 				esac
 				done
@@ -449,6 +450,9 @@ function holland_selected() {
 function create_cron() {
 	if [ `grep "bk $name" /etc/cron.$1/ -R | wc -l` == "0" ]; then
 		echo -e "Creating $name holland backupset cronjob in /etc/cron.$1/holland..\n"
+		if [ ! -f /etc/cron.$1/holland ]; then
+			echo "#!/bin/bash" > /etc/cron.$1/holland
+		fi		
 		echo "`which holland` bk $name" >> /etc/cron.$1/holland
 		chmod +x /etc/cron.$1/holland
 	else
@@ -586,7 +590,7 @@ Option number: " CRON
 		read -p "Do you want to force an initial backup right now? [Y/n] " yn
 		case $yn in
 			[Yy]* ) `which holland` bk $name; break;;
-			[Nn]* ) echo "Aborted!"; exit;;
+			[Nn]* ) echo "The first backup will run as scheduled!"; exit;;
 			* ) echo -e "\nPlease answer yes[Y] or no[N]";;
 		esac
 		done
