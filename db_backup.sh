@@ -262,6 +262,7 @@ Do not try to manually modify any of them unless you know what you do!
 If you need to manually delete any backups created via this script, update the corresponding clouddb instance ID_log.conf file in /etc/dbcloud_backup/\n"
 
 echo "#!/bin/bash
+# This script has been automatically deployed by the database_backup main script; more info at: https://github.com/cojynakata/database_backup
 
 LOCATION=\$1
 UUID=\$2
