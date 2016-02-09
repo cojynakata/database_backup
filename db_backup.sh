@@ -394,7 +394,7 @@ Option number: " CRON
 				done
 				
 				if [ $? == 0 ]; then
-					echo -e "\nThe inital backup completed successfully. The next backup will run as scheduled!"
+					echo -e "\nThe initial backup completed successfully. The next backup will run as scheduled!"
 					echo "All the backups are stored in your \"MySQL Backups\" section in your Rackspace cloud control panel"
 				else
 					echo -e "\nThere was an issue while performing the backup. Please try to run the backup manually "
@@ -597,7 +597,7 @@ Option number: " CRON
 		done
 		
 		if [ $? == 0 ]; then
-			echo -e "\nThe inital backup completed successfully. The next backup will run as scheduled!"
+			echo -e "\nThe initial backup completed successfully. The next backup will run as scheduled!"
 		else
 			echo -e "\nThere was an issue while performing the backup. Please go over the holland log /var/log/holland/holland.log and troubleshoot manually"
 		fi
